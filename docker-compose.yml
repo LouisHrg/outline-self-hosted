@@ -1,0 +1,76 @@
+version: "3"
+services:
+
+  traefik:
+    image: traefik:latest
+    container_name: traefik_wiki
+    expose:
+      - 8080
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./.docker/prod/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./.docker/prod/traefik/config.yml:/etc/traefik/config.yml:ro
+      - ./.docker/prod/certs:/etc/certs:ro
+  redis:
+    image: redis
+    container_name: redis_wiki
+    restart: always
+
+
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: outline
+    volumes:
+      - ./data/pgdata:/var/lib/postgresql/data
+    restart: always
+
+
+  minio:
+    image: minio/minio
+    container_name: minio_wiki
+    volumes:
+      - ./data/minio_root:/minio_root:z
+      - ./data/certs:/root/.minio/certs:z
+    command: "minio server /minio_root"
+    env_file: ./.env
+    restart: always
+
+
+  outline:
+    image: outlinewiki/outline:latest
+    container_name: outline_wiki
+    command: sh -c "yarn sequelize:migrate --env production-ssl-disabled && yarn start"
+    environment:
+      - DATABASE_URL=postgres://user:pass@postgres:5432/outline
+      - DATABASE_URL_TEST=postgres://user:pass@postgres:5432/outline-test
+      - REDIS_URL=redis://redis:6379
+    restart: always
+    env_file: ./.env
+    expose:
+      - 3000
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+
+  nginx:
+    image: nginx
+    container_name: nginx_wiki
+    volumes:
+      - ./data/nginx/:/etc/nginx/conf.d/:z
+    restart: always
+    expose:
+      - 80
+    depends_on:
+      - outline
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.client.rule=Host(`wiki.wizardstech.io`)
+      - traefik.http.routers.client.tls=true

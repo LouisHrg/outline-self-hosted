@@ -1,0 +1,4 @@
+/node_modules
+/.db/
+/certs/*.pem
+/data.ms

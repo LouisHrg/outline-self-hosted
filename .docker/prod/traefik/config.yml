@@ -1,0 +1,12 @@
+http:
+  routers:
+    traefik:
+      rule: "Host(`server.wizardstech.io`)"
+      service: "api@internal"
+      tls:
+        domains:
+          - main: "wiki.wizardstech.io"
+tls:
+  certificates:
+    - certFile: "/etc/certs/local-cert.pem"
+      keyFile: "/etc/certs/local-key.pem"
